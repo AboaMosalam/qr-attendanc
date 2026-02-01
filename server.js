@@ -15,6 +15,26 @@ app.use(bodyParser.json());
 // Serve static files correctly in all environments
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Middleware to ensure DB connection (Critical for Vercel/Serverless)
+let connectionPromise = null;
+app.use(async (req, res, next) => {
+    if (db || (global.students && !MONGODB_URI)) {
+        return next();
+    }
+
+    if (!connectionPromise) {
+        connectionPromise = connectDB();
+    }
+
+    try {
+        await connectionPromise;
+        next();
+    } catch (error) {
+        console.error("Failed to connect to DB in middleware", error);
+        next(); // Proceed to allow memory fallback or error handling in routes
+    }
+});
+
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI;
 let db;
