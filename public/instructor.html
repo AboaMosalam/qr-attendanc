@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بوابة المحاضرين - نظام الحضور</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">← الرئيسية</a>
+            <a href="/student">بوابة الطلاب</a>
+        </div>
+
+        <h1>👨‍🏫 بوابة المحاضرين</h1>
+
+        <!-- Alert Messages -->
+        <div id="alert-container"></div>
+
+        <!-- Login Section -->
+        <div id="login-section" class="glass-card" style="max-width: 500px; margin: 0 auto;">
+            <h2>🔐 تسجيل الدخول</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 30px;">
+                سجل دخولك للوصول إلى لوحة التحكم
+            </p>
+
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username">اسم المستخدم *</label>
+                    <input type="text" id="username" required placeholder="أدخل اسم المستخدم">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">كلمة المرور *</label>
+                    <input type="password" id="password" required placeholder="أدخل كلمة المرور">
+                </div>
+
+                <div class="form-group">
+                    <label for="name">الاسم الكامل (للمستخدمين الجدد)</label>
+                    <input type="text" id="name" placeholder="الاسم الكامل">
+                </div>
+
+                <div class="form-group">
+                    <label for="email">البريد الإلكتروني (للمستخدمين الجدد)</label>
+                    <input type="email" id="email" placeholder="example@university.edu">
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                    تسجيل الدخول / إنشاء حساب
+                </button>
+            </form>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div id="dashboard-section" class="hidden">
+            <div class="glass-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                    <h2>مرحباً، <span id="instructor-name"></span></h2>
+                    <button id="logout-btn" class="btn" style="background: rgba(255,255,255,0.1);">
+                        تسجيل الخروج
+                    </button>
+                </div>
+
+                <!-- Create Session Form -->
+                <div class="card" style="margin-bottom: 30px;">
+                    <h3>📋 إنشاء جلسة حضور جديدة</h3>
+                    <form id="create-session-form" style="margin-top: 20px;">
+                        <div class="grid">
+                            <div class="form-group">
+                                <label for="course-name">اسم المادة *</label>
+                                <input type="text" id="course-name" required placeholder="مثال: البرمجة الكائنية">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="lecture-title">عنوان المحاضرة *</label>
+                                <input type="text" id="lecture-title" required placeholder="مثال: الوحدة الثالثة">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="duration">مدة الجلسة (بالدقائق) *</label>
+                                <input type="number" id="duration" required value="60" min="5" max="240">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success" style="width: 100%;">
+                            ✨ إنشاء رمز QR
+                        </button>
+                    </form>
+                </div>
+
+                <!-- QR Code Display -->
+                <div id="qr-display" class="hidden">
+                    <div class="qr-container">
+                        <h3 style="color: #333; margin-bottom: 20px;">رمز QR للحضور</h3>
+                        <div id="session-info" style="color: #666; margin-bottom: 20px;"></div>
+                        <div id="qrcode"></div>
+                        <p style="color: #666; margin-top: 20px; font-size: 0.9rem;">
+                            اعرض هذا الرمز للطلاب لتسجيل حضورهم
+                        </p>
+                        <div style="margin-top: 20px;">
+                            <button id="close-qr-btn" class="btn btn-primary">
+                                إغلاق
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Sessions -->
+                <div class="card">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3>📊 الجلسات النشطة</h3>
+                        <button id="refresh-sessions-btn" class="btn btn-primary">
+                            تحديث
+                        </button>
+                    </div>
+                    <div id="sessions-list"></div>
+                </div>
+
+                <!-- Attendance Reports -->
+                <div class="card" style="margin-top: 30px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3>📈 تقارير الحضور</h3>
+                        <button id="export-all-btn" class="btn btn-success">
+                            📥 تصدير جميع التقارير
+                        </button>
+                    </div>
+                    <div id="reports-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        let currentInstructor = null;
+        let currentSessions = [];
+
+        // Show alert message
+        function showAlert(message, type = 'info') {
+            const alertContainer = document.getElementById('alert-container');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alertContainer.appendChild(alert);
+
+            setTimeout(() => {
+                alert.style.animation = 'fadeInUp 0.5s ease-out reverse';
+                setTimeout(() => alert.remove(), 500);
+            }, 5000);
+        }
+
+        // Login Form
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const loginData = {
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value,
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/instructors/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(loginData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentInstructor = data.instructor;
+                    showAlert('مرحباً بك!', 'success');
+                    showDashboard();
+                } else {
+                    showAlert(data.error || 'حدث خطأ أثناء تسجيل الدخول', 'error');
+                }
+            } catch (error) {
+                showAlert('خطأ في الاتصال بالخادم', 'error');
+                console.error('Error:', error);
+            }
+        });
+
+        // Show Dashboard
+        function showDashboard() {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('dashboard-section').classList.remove('hidden');
+            document.getElementById('instructor-name').textContent = currentInstructor.name;
+            loadSessions();
+            loadReports();
+        }
+
+        // Logout
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            currentInstructor = null;
+            document.getElementById('dashboard-section').classList.add('hidden');
+            document.getElementById('login-section').classList.remove('hidden');
+            document.getElementById('login-form').reset();
+        });
+
+        // Create Session
+        document.getElementById('create-session-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const sessionData = {
+                instructorId: currentInstructor.id,
+                courseName: document.getElementById('course-name').value,
+                lectureTitle: document.getElementById('lecture-title').value,
+                duration: parseInt(document.getElementById('duration').value)
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/sessions/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(sessionData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('تم إنشاء الجلسة بنجاح!', 'success');
+                    displayQRCode(data.session);
+                    document.getElementById('create-session-form').reset();
+                    loadSessions();
+                } else {
+                    showAlert(data.error || 'حدث خطأ أثناء إنشاء الجلسة', 'error');
+                }
+            } catch (error) {
+                showAlert('خطأ في الاتصال بالخادم', 'error');
+                console.error('Error:', error);
+            }
+        });
+
+        // Display QR Code
+        function displayQRCode(session) {
+            const qrDisplay = document.getElementById('qr-display');
+            const qrContainer = document.getElementById('qrcode');
+            const sessionInfo = document.getElementById('session-info');
+
+            // Clear previous QR
+            qrContainer.innerHTML = '';
+
+            // Show session info
+            sessionInfo.innerHTML = `
+                <strong>${session.courseName}</strong><br>
+                ${session.lectureTitle}<br>
+                <small>صالح لمدة ${session.duration} دقيقة</small>
+            `;
+
+            // Generate QR code
+            new QRCode(qrContainer, {
+                text: session.qrCode,
+                width: 256,
+                height: 256,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            qrDisplay.classList.remove('hidden');
+        }
+
+        // Close QR Display
+        document.getElementById('close-qr-btn').addEventListener('click', () => {
+            document.getElementById('qr-display').classList.add('hidden');
+        });
+
+        // Load Sessions
+        async function loadSessions() {
+            if (!currentInstructor) return;
+
+            try {
+                const response = await fetch(`${API_URL}/sessions/instructor/${currentInstructor.id}`);
+                const sessions = await response.json();
+                currentSessions = sessions;
+
+                const sessionsList = document.getElementById('sessions-list');
+
+                if (sessions.length === 0) {
+                    sessionsList.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">لا توجد جلسات نشطة</p>';
+                    return;
+                }
+
+                // Filter active sessions (not expired)
+                const activeSessions = sessions.filter(s => new Date(s.expiresAt) > new Date());
+
+                if (activeSessions.length === 0) {
+                    sessionsList.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">لا توجد جلسات نشطة</p>';
+                    return;
+                }
+
+                sessionsList.innerHTML = activeSessions.map(session => `
+                    <div class="card" style="margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h4 style="color: var(--text-primary); margin-bottom: 8px;">${session.courseName}</h4>
+                                <p style="color: var(--text-secondary); margin-bottom: 4px;">${session.lectureTitle}</p>
+                                <p style="color: var(--text-secondary); font-size: 0.85rem;">
+                                    تنتهي في: ${new Date(session.expiresAt).toLocaleString('ar-EG')}
+                                </p>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button onclick="showSessionQR('${session.id}')" class="btn btn-primary">
+                                    عرض QR
+                                </button>
+                                <button onclick="viewAttendance('${session.id}')" class="btn btn-success">
+                                    الحضور
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+            }
+        }
+
+        // Show Session QR
+        window.showSessionQR = function (sessionId) {
+            const session = currentSessions.find(s => s.id === sessionId);
+            if (session) {
+                displayQRCode(session);
+            }
+        };
+
+        // View Attendance for Session
+        window.viewAttendance = async function (sessionId) {
+            try {
+                const response = await fetch(`${API_URL}/attendance/session/${sessionId}`);
+                const attendance = await response.json();
+
+                const session = currentSessions.find(s => s.id === sessionId);
+
+                if (attendance.length === 0) {
+                    showAlert('لا يوجد حضور مسجل لهذه الجلسة بعد', 'info');
+                    return;
+                }
+
+                // Create modal to show attendance
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.8);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 1000;
+                `;
+
+                modal.innerHTML = `
+                    <div class="glass-card" style="max-width: 800px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                        <h3>حضور: ${session.courseName} - ${session.lectureTitle}</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                            عدد الحضور: ${attendance.length} طالب
+                        </p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>اسم الطالب</th>
+                                    <th>الرقم الجامعي</th>
+                                    <th>وقت التسجيل</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${attendance.map((record, index) => `
+                                    <tr>
+                                        <td>${index + 1}</td>
+                                        <td>${record.studentName}</td>
+                                        <td>${record.studentId}</td>
+                                        <td>${new Date(record.markedAt).toLocaleString('ar-EG')}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
+                            <button onclick="exportSessionToExcel('${sessionId}')" class="btn btn-success">
+                                📥 تصدير Excel
+                            </button>
+                            <button onclick="this.closest('[style*=fixed]').remove()" class="btn btn-primary">
+                                إغلاق
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+
+                // Close on background click
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                });
+            } catch (error) {
+                showAlert('خطأ في تحميل بيانات الحضور', 'error');
+                console.error('Error:', error);
+            }
+        };
+
+        // Load Reports
+        async function loadReports() {
+            if (!currentInstructor) return;
+
+            try {
+                const response = await fetch(`${API_URL}/attendance/instructor/${currentInstructor.id}`);
+                const reports = await response.json();
+
+                const reportsList = document.getElementById('reports-list');
+
+                if (reports.length === 0) {
+                    reportsList.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">لا توجد تقارير متاحة</p>';
+                    return;
+                }
+
+                reportsList.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>المادة</th>
+                                <th>المحاضرة</th>
+                                <th>التاريخ</th>
+                                <th>عدد الحضور</th>
+                                <th>الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${reports.map(report => `
+                                <tr>
+                                    <td>${report.courseName}</td>
+                                    <td>${report.lectureTitle}</td>
+                                    <td>${new Date(report.createdAt).toLocaleDateString('ar-EG')}</td>
+                                    <td>${report.attendees.length}</td>
+                                    <td>
+                                        <button onclick="exportSessionToExcel('${report.id}')" class="btn btn-success" style="padding: 8px 16px;">
+                                            📥 تصدير
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Error loading reports:', error);
+            }
+        }
+
+        // Export to Excel
+        window.exportSessionToExcel = async function (sessionId) {
+            try {
+                const [sessionRes, attendanceRes] = await Promise.all([
+                    fetch(`${API_URL}/sessions/instructor/${currentInstructor.id}`),
+                    fetch(`${API_URL}/attendance/session/${sessionId}`)
+                ]);
+
+                const sessions = await sessionRes.json();
+                const attendance = await attendanceRes.json();
+                const session = sessions.find(s => s.id === sessionId);
+
+                if (!session) {
+                    showAlert('الجلسة غير موجودة', 'error');
+                    return;
+                }
+
+                // Prepare data
+                const data = attendance.map((record, index) => ({
+                    '#': index + 1,
+                    'اسم الطالب': record.studentName,
+                    'الرقم الجامعي': record.studentId,
+                    'وقت التسجيل': new Date(record.markedAt).toLocaleString('ar-EG')
+                }));
+
+                // Create workbook
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.json_to_sheet(data);
+
+                // Add headers
+                XLSX.utils.book_append_sheet(wb, ws, 'الحضور');
+
+                // Download
+                const filename = `حضور_${session.courseName}_${session.lectureTitle}_${new Date().toLocaleDateString('ar-EG')}.xlsx`;
+                XLSX.writeFile(wb, filename);
+
+                showAlert('تم تصدير الملف بنجاح!', 'success');
+            } catch (error) {
+                showAlert('خطأ في تصدير الملف', 'error');
+                console.error('Error:', error);
+            }
+        };
+
+        // Export All Reports
+        document.getElementById('export-all-btn').addEventListener('click', async () => {
+            try {
+                const response = await fetch(`${API_URL}/attendance/instructor/${currentInstructor.id}`);
+                const reports = await response.json();
+
+                if (reports.length === 0) {
+                    showAlert('لا توجد تقارير للتصدير', 'info');
+                    return;
+                }
+
+                const wb = XLSX.utils.book_new();
+
+                for (const report of reports) {
+                    if (report.attendees.length === 0) continue;
+
+                    const data = report.attendees.map((record, index) => ({
+                        '#': index + 1,
+                        'اسم الطالب': record.studentName,
+                        'الرقم الجامعي': record.studentId,
+                        'وقت التسجيل': new Date(record.markedAt).toLocaleString('ar-EG')
+                    }));
+
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const sheetName = `${report.courseName.substring(0, 20)}_${new Date(report.createdAt).toLocaleDateString('en-GB')}`;
+                    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                }
+
+                const filename = `جميع_التقارير_${new Date().toLocaleDateString('ar-EG')}.xlsx`;
+                XLSX.writeFile(wb, filename);
+
+                showAlert('تم تصدير جميع التقارير بنجاح!', 'success');
+            } catch (error) {
+                showAlert('خطأ في تصدير التقارير', 'error');
+                console.error('Error:', error);
+            }
+        });
+
+        // Refresh Sessions
+        document.getElementById('refresh-sessions-btn').addEventListener('click', () => {
+            loadSessions();
+            loadReports();
+            showAlert('تم التحديث', 'success');
+        });
+
+        // Auto refresh every 30 seconds
+        setInterval(() => {
+            if (currentInstructor) {
+                loadSessions();
+            }
+        }, 30000);
+    </script>
+</body>
+
+</html>

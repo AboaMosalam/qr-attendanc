@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام الحضور بـ QR Code</title>
+    <meta name="description" content="نظام متقدم لتتبع حضور الطلاب باستخدام رموز QR">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🎓 نظام الحضور بـ QR Code</h1>
+        
+        <div class="grid">
+            <!-- Student Portal Card -->
+            <div class="glass-card">
+                <h2>👨‍🎓 بوابة الطلاب</h2>
+                <p style="color: var(--text-secondary); margin: 20px 0; line-height: 1.8;">
+                    سجل بياناتك وسجل حضورك بسهولة عن طريق مسح رمز QR الخاص بالمحاضرة
+                </p>
+                <ul style="color: var(--text-secondary); margin: 20px 0 30px 20px; line-height: 2;">
+                    <li>تسجيل البيانات الشخصية</li>
+                    <li>مسح رمز QR للحضور</li>
+                    <li>متابعة سجل الحضور</li>
+                </ul>
+                <a href="/student" class="btn btn-primary" style="width: 100%; text-align: center;">
+                    الدخول إلى بوابة الطلاب ←
+                </a>
+            </div>
+
+            <!-- Instructor Portal Card -->
+            <div class="glass-card">
+                <h2>👨‍🏫 بوابة المحاضرين</h2>
+                <p style="color: var(--text-secondary); margin: 20px 0; line-height: 1.8;">
+                    إنشاء جلسات حضور وتتبع حضور الطلاب وتصدير التقارير إلى Excel
+                </p>
+                <ul style="color: var(--text-secondary); margin: 20px 0 30px 20px; line-height: 2;">
+                    <li>إنشاء رموز QR للمحاضرات</li>
+                    <li>متابعة الحضور لحظياً</li>
+                    <li>تصدير البيانات إلى Excel</li>
+                </ul>
+                <a href="/instructor" class="btn btn-secondary" style="width: 100%; text-align: center;">
+                    الدخول إلى بوابة المحاضرين ←
+                </a>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="glass-card" style="margin-top: 40px;">
+            <h2 style="text-align: center; margin-bottom: 30px;">✨ المميزات</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>⚡ سريع وسهل</h3>
+                    <p style="color: var(--text-secondary); margin-top: 12px;">
+                        تسجيل الحضور في ثوانٍ معدودة عن طريق مسح رمز QR
+                    </p>
+                </div>
+                <div class="card">
+                    <h3>🔒 آمن وموثوق</h3>
+                    <p style="color: var(--text-secondary); margin-top: 12px;">
+                        كل جلسة لها رمز فريد مع صلاحية محددة
+                    </p>
+                </div>
+                <div class="card">
+                    <h3>📊 تقارير تفصيلية</h3>
+                    <p style="color: var(--text-secondary); margin-top: 12px;">
+                        تصدير بيانات الحضور إلى ملفات Excel
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; margin-top: 60px; color: var(--text-secondary);">
+            <p>© 2026 نظام الحضور بـ QR Code - جميع الحقوق محفوظة</p>
+        </div>
+    </div>
+
+    <script>
+        // Add smooth scroll behavior
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بوابة الطلاب - نظام الحضور</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">← الرئيسية</a>
+            <a href="/instructor">بوابة المحاضرين</a>
+        </div>
+
+        <h1>👨‍🎓 بوابة الطلاب</h1>
+
+        <!-- Alert Messages -->
+        <div id="alert-container"></div>
+
+        <!-- Registration Section -->
+        <div id="registration-section" class="glass-card">
+            <h2>📝 تسجيل بيانات الطالب</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 30px;">
+                سجل بياناتك أولاً لتتمكن من تسجيل الحضور
+            </p>
+
+            <form id="registration-form">
+                <div class="form-group">
+                    <label for="student-name">الاسم الكامل *</label>
+                    <input type="text" id="student-name" required placeholder="أدخل اسمك الكامل">
+                </div>
+
+                <div class="form-group">
+                    <label for="student-id">الرقم الجامعي *</label>
+                    <input type="text" id="student-id" required placeholder="مثال: 20210001">
+                </div>
+
+                <div class="form-group">
+                    <label for="student-email">البريد الإلكتروني *</label>
+                    <input type="email" id="student-email" required placeholder="example@student.edu">
+                </div>
+
+                <div class="form-group">
+                    <label for="student-phone">رقم الهاتف</label>
+                    <input type="tel" id="student-phone" placeholder="01xxxxxxxxx">
+                </div>
+
+                <div class="form-group">
+                    <label for="student-department">القسم *</label>
+                    <select id="student-department" required>
+                        <option value="">اختر القسم</option>
+                        <option value="CS">علوم الحاسب</option>
+                        <option value="IT">تكنولوجيا المعلومات</option>
+                        <option value="IS">نظم المعلومات</option>
+                        <option value="AI">الذكاء الاصطناعي</option>
+                        <option value="DS">علوم البيانات</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="student-year">السنة الدراسية *</label>
+                    <select id="student-year" required>
+                        <option value="">اختر السنة</option>
+                        <option value="1">الأولى</option>
+                        <option value="2">الثانية</option>
+                        <option value="3">الثالثة</option>
+                        <option value="4">الرابعة</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                    تسجيل البيانات
+                </button>
+            </form>
+
+            <div style="text-align: center; margin-top: 24px;">
+                <button id="already-registered-btn" class="btn btn-secondary">
+                    لدي حساب بالفعل - تسجيل الحضور
+                </button>
+            </div>
+        </div>
+
+        <!-- Attendance Section -->
+        <div id="attendance-section" class="glass-card hidden">
+            <h2>📸 مسح رمز QR</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 30px;">
+                امسح رمز QR المعروض في المحاضرة لتسجيل حضورك
+            </p>
+
+            <div class="form-group">
+                <label for="attendance-student-id">الرقم الجامعي</label>
+                <input type="text" id="attendance-student-id" placeholder="أدخل رقمك الجامعي">
+            </div>
+
+            <button id="start-scan-btn" class="btn btn-success" style="width: 100%; margin-bottom: 20px;">
+                📷 بدء المسح
+            </button>
+
+            <!-- QR Scanner -->
+            <div id="scanner-container" class="hidden">
+                <div id="reader"></div>
+            </div>
+
+            <!-- Manual QR Code Input -->
+            <div style="margin-top: 30px;">
+                <h3>أو أدخل الرمز يدوياً</h3>
+                <div class="form-group">
+                    <label for="manual-qr-code">رمز QR</label>
+                    <input type="text" id="manual-qr-code" placeholder="الصق الرمز هنا">
+                </div>
+                <button id="manual-submit-btn" class="btn btn-primary" style="width: 100%;">
+                    تسجيل الحضور
+                </button>
+            </div>
+
+            <div style="text-align: center; margin-top: 24px;">
+                <button id="back-to-register-btn" class="btn" style="background: rgba(255,255,255,0.1);">
+                    ← العودة للتسجيل
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        let html5QrCode = null;
+
+        // Show alert message
+        function showAlert(message, type = 'info') {
+            const alertContainer = document.getElementById('alert-container');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alertContainer.appendChild(alert);
+
+            setTimeout(() => {
+                alert.style.animation = 'fadeInUp 0.5s ease-out reverse';
+                setTimeout(() => alert.remove(), 500);
+            }, 5000);
+        }
+
+        // Registration Form
+        document.getElementById('registration-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const studentData = {
+                name: document.getElementById('student-name').value,
+                studentId: document.getElementById('student-id').value,
+                email: document.getElementById('student-email').value,
+                phone: document.getElementById('student-phone').value,
+                department: document.getElementById('student-department').value,
+                year: document.getElementById('student-year').value
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/students/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(studentData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('تم التسجيل بنجاح! يمكنك الآن تسجيل الحضور', 'success');
+                    localStorage.setItem('studentId', studentData.studentId);
+                    setTimeout(() => showAttendanceSection(), 2000);
+                } else {
+                    showAlert(data.error || 'حدث خطأ أثناء التسجيل', 'error');
+                }
+            } catch (error) {
+                showAlert('خطأ في الاتصال بالخادم', 'error');
+                console.error('Error:', error);
+            }
+        });
+
+        // Switch to attendance section
+        function showAttendanceSection() {
+            document.getElementById('registration-section').classList.add('hidden');
+            document.getElementById('attendance-section').classList.remove('hidden');
+
+            const storedStudentId = localStorage.getItem('studentId');
+            if (storedStudentId) {
+                document.getElementById('attendance-student-id').value = storedStudentId;
+            }
+        }
+
+        // Already registered button
+        document.getElementById('already-registered-btn').addEventListener('click', showAttendanceSection);
+
+        // Back to register button
+        document.getElementById('back-to-register-btn').addEventListener('click', () => {
+            document.getElementById('attendance-section').classList.add('hidden');
+            document.getElementById('registration-section').classList.remove('hidden');
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop();
+            }
+        });
+
+        // Start QR Scanner
+        document.getElementById('start-scan-btn').addEventListener('click', async () => {
+            const scannerContainer = document.getElementById('scanner-container');
+            const startBtn = document.getElementById('start-scan-btn');
+
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+
+            if (scannerContainer.classList.contains('hidden')) {
+                scannerContainer.classList.remove('hidden');
+                startBtn.textContent = '⏸ إيقاف المسح';
+
+                try {
+                    await html5QrCode.start(
+                        { facingMode: "environment" },
+                        { fps: 10, qrbox: { width: 250, height: 250 } },
+                        onScanSuccess,
+                        onScanFailure
+                    );
+                } catch (err) {
+                    showAlert('خطأ في تشغيل الكاميرا', 'error');
+                    console.error('Camera error:', err);
+                }
+            } else {
+                scannerContainer.classList.add('hidden');
+                startBtn.textContent = '📷 بدء المسح';
+                await html5QrCode.stop();
+            }
+        });
+
+        // QR Scan Success
+        function onScanSuccess(decodedText) {
+            document.getElementById('manual-qr-code').value = decodedText;
+            showAlert('تم قراءة الرمز بنجاح!', 'success');
+
+            if (html5QrCode) {
+                html5QrCode.stop();
+                document.getElementById('scanner-container').classList.add('hidden');
+                document.getElementById('start-scan-btn').textContent = '📷 بدء المسح';
+            }
+
+            // Auto submit
+            setTimeout(() => submitAttendance(decodedText), 1000);
+        }
+
+        function onScanFailure(error) {
+            // Silent - scanning...
+        }
+
+        // Manual Submit
+        document.getElementById('manual-submit-btn').addEventListener('click', () => {
+            const qrCode = document.getElementById('manual-qr-code').value;
+            if (!qrCode) {
+                showAlert('الرجاء إدخال رمز QR', 'error');
+                return;
+            }
+            submitAttendance(qrCode);
+        });
+
+        // Submit Attendance
+        async function submitAttendance(qrCode) {
+            const studentId = document.getElementById('attendance-student-id').value;
+
+            if (!studentId) {
+                showAlert('الرجاء إدخال الرقم الجامعي', 'error');
+                return;
+            }
+
+            try {
+                // First, get session info
+                const sessionResponse = await fetch(`${API_URL}/sessions/qr/${qrCode}`);
+                const sessionData = await sessionResponse.json();
+
+                if (!sessionResponse.ok) {
+                    showAlert(sessionData.error || 'رمز QR غير صحيح', 'error');
+                    return;
+                }
+
+                // Then mark attendance
+                const attendanceData = {
+                    sessionId: sessionData.id,
+                    studentId: studentId,
+                    qrCode: qrCode
+                };
+
+                const response = await fetch(`${API_URL}/attendance/mark`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(attendanceData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert(`✅ تم تسجيل حضورك في: ${sessionData.courseName} - ${sessionData.lectureTitle}`, 'success');
+                    document.getElementById('manual-qr-code').value = '';
+                } else {
+                    showAlert(data.error || 'حدث خطأ أثناء تسجيل الحضور', 'error');
+                }
+            } catch (error) {
+                showAlert('خطأ في الاتصال بالخادم', 'error');
+                console.error('Error:', error);
+            }
+        }
+
+        // Check if already registered
+        window.addEventListener('load', () => {
+            const storedStudentId = localStorage.getItem('studentId');
+            if (storedStudentId) {
+                // Optionally show a message offering to go to attendance section
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-info';
+                alert.innerHTML = `
+                    مرحباً ${storedStudentId}! 
+                    <button onclick="showAttendanceSection()" class="btn btn-primary" style="margin-right: 10px; padding: 8px 16px;">
+                        تسجيل الحضور ←
+                    </button>
+                `;
+                document.getElementById('alert-container').appendChild(alert);
+            }
+        });
+    </script>
+</body>
+
+</html>
