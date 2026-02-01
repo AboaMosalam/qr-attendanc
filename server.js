@@ -355,12 +355,17 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Start server
-connectDB().then(() => {
-    app.listen(PORT, () => {
-        console.log(`🚀 Server running on http://localhost:${PORT}`);
-        console.log(`📚 Student Portal: http://localhost:${PORT}/student`);
-        console.log(`👨‍🏫 Instructor Portal: http://localhost:${PORT}/instructor`);
-        console.log(`💾 Database: ${MONGODB_URI ? 'MongoDB' : 'In-Memory (Development Only)'}`);
+// Start server or export for Vercel
+if (require.main === module) {
+    connectDB().then(() => {
+        app.listen(PORT, () => {
+            console.log(`🚀 Server running on http://localhost:${PORT}`);
+            console.log(`📚 Student Portal: http://localhost:${PORT}/student`);
+            console.log(`👨‍🏫 Instructor Portal: http://localhost:${PORT}/instructor`);
+        });
     });
-});
+} else {
+    // For Vercel Serverless
+    connectDB();
+    module.exports = app;
+}
